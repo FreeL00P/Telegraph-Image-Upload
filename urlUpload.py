@@ -6,7 +6,7 @@ from concurrent.futures import ThreadPoolExecutor
 def upload_image(url):
     try:
         files = {'file': requests.get(url).content}
-        upload_url = 'https://im.gurl.eu.org' # # 请替换为你的上传链接
+        upload_url = '' # # 请替换为你的上传链接
         response = requests.post(upload_url+'/upload', files=files)
         if response.status_code == 200:
             data = response.json()
