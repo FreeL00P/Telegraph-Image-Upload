@@ -54,7 +54,7 @@ def error_url(url):
         f.write(url + '\n')
 
 def main():
-    file_path = "D:\p.txt"  
+    file_path = "       "  
     upload_images_from_file(file_path)
 
 if __name__ == "__main__":

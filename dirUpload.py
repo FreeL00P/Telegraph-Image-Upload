@@ -4,6 +4,26 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 def upload_file(file_path):
+<<<<<<< HEAD
+    try:
+        url = '     '
+        files = {'file': open(file_path, 'rb')}
+        response = requests.post(url+'/upload', files=files)
+        if response.status_code == 200:
+            data = response.json()
+            src = data[0]['src']
+            finally_url = url + src
+            print("[INFO]", file_path, "上传成功！URL: ", finally_url)
+            return finally_url
+        else:
+            print("Error occurred during upload:", response.text)
+            error_url(url)  # 记录错误的文件
+            return None
+    except Exception as e:
+            print("Error occurred during upload:", e)
+            error_url(file_path)  # 记录错误的文件
+            return None
+=======
     url = ''
     files = {'file': open(file_path, 'rb')}
     response = requests.post(url+'/upload', files=files)
@@ -17,6 +37,7 @@ def upload_file(file_path):
         print("Error occurred during upload:", response.text)
         return None
 
+>>>>>>> 39f9473f0d956fa42df349ef2ee5eb8c2690b4e9
 def upload_files_in_directory(directory):
     src_values = []
     success_count = 0
@@ -41,9 +62,11 @@ def save_urls_to_file(urls):
     with open(time + '_dirUpload_urls.txt', 'a') as f:
         for url in urls:
             f.write(url + '\n')
-
+def error_url(url):
+    with open('error.txt', 'a') as f:
+        f.write(url + '\n')
 def main():
-    upload_directory = "D:\图片\p"
+    upload_directory = "      "
     upload_files_in_directory(upload_directory)
 
 if __name__ == "__main__":
