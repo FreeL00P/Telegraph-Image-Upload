@@ -4,7 +4,7 @@ import datetime
 from concurrent.futures import ThreadPoolExecutor
 
 def upload_file(file_path):
-    url = 'https://im.gurl.eu.org'
+    url = ''
     files = {'file': open(file_path, 'rb')}
     response = requests.post(url+'/upload', files=files)
     if response.status_code == 200:
