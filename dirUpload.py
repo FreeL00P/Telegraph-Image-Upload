@@ -364,9 +364,9 @@ def save_urls_to_file_by_folder(urls, folder_name):
 def main():
     """ 主函数 """
     global upload_directory
-    upload_directory = 'D:/test'  # 上传目录
+    upload_directory = ""
     global url_base
-    url_base = 'http://'
+    url_base = ''
     global proxies
     proxies = {
         "http": "http://127.0.0.1:7890",
