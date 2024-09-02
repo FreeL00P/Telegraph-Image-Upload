@@ -242,7 +242,9 @@ def save_urls_to_file_by_folder(urls, folder_name):
     :param src_values: list - 已上传文件的URL列表
     :param folder_name: str - 保存文件时使用的文件夹名称
     """
-    file_path = f"{folder_name}.txt"
+    file_path = rf".\{save_folder}\{folder_name}.txt"
+    if not os.path.exists(save_folder):
+        os.makedirs(save_folder)
     with save_file_lock:  # 确保线程安全
         with open(file_path, 'a', encoding='utf-8') as f:
             for url in urls:
@@ -252,6 +254,8 @@ def main():
     """ 主函数 """
     global upload_directory
     upload_directory = r""
+    global save_folder
+    save_folder=os.path.basename(upload_directory)
     global url_base
     url_base = ''
     # global proxies
@@ -279,6 +283,7 @@ def main():
     sys.exit(0)
 if __name__ == "__main__":
     main()
+
 
 
 
