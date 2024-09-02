@@ -28,24 +28,47 @@ def convert_txt_to_json(base_dir):
             # 处理序号
             count = 1
             while len(urls) >= 200:
-                new_key = f"{index} -{count}"
-                data[f"{os.path.basename(base_dir)}"]["urls"][new_key] = urls[:200]
-                urls = urls[200:]  # 剩余 URL
-                count += 1
-
+                if count != 1:
+                    new_key = f"{index} -{count}"
+                    data[f"{os.path.basename(base_dir)}"]["urls"][new_key] = urls[:200]
+                    urls = urls[200:]  # 剩余 URL
+                    count += 1
+                else:
+                    new_key = f"{index}"
+                    data[f"{os.path.basename(base_dir)}"]["urls"][new_key] = urls[:200]
+                    urls = urls[200:]  # 剩余 URL
+                    count += 1
             # 添加剩余的 URL（如果有）
             if urls:
-                data[f"{os.path.basename(base_dir)}"]["urls"][f"{index} -{count}"] = urls
-
+                if count != 1:
+                    data[f"{os.path.basename(base_dir)}"]["urls"][f"{index} -{count}"] = urls
+                else:
+                    data[f"{os.path.basename(base_dir)}"]["urls"][f"{index}"] = urls
             logging.info(f"{Fore.GREEN}Processed {file_name}: {len(urls) + 200 * (count - 1)} URLs")
 
     return data
-
 def save_to_json(data, output_file):
     """将数据保存为 JSON 文件"""
-    with open(output_file, 'w') as json_file:
+    with open(output_file, 'w' ,encoding='utf-8') as json_file:
         json.dump(data, json_file, indent=4, ensure_ascii=False)
     logging.info(f"{Fore.CYAN}Data saved to {output_file}")
+def merge_txt_files(folder_path,output_file):
+    """
+    将指定文件夹内所有 .txt 文件中的链接合并到一个以文件夹名称命名的新 .txt 文件中。
+    """
+    # 打开新文件用于写入
+    with open(output_file, 'w') as outfile:
+        # 遍历文件夹中的所有 .txt 文件
+        for file_name in os.listdir(folder_path):
+            file_path = os.path.join(folder_path, file_name)
+            # 确保文件是 .txt 文件
+            if os.path.isfile(file_path) and file_name.endswith('.txt'):
+                with open(file_path, 'r') as infile:
+                    # 读取每行内容并写入到新文件中
+                    for line in infile:
+                        outfile.write(line)
+
+    logging.info(f"所有链接已合并到 {output_file} 文件中。")
 
 if __name__ == "__main__":
     # 配置日志记录
@@ -61,6 +84,7 @@ if __name__ == "__main__":
 
     base_directory = r''  # 替换为你的目录路径
     output_json_file = f'{os.path.basename(base_directory)}.json'  # 替换为你想要的输出文件名
-
+    output_txt_file = f'{os.path.basename(base_directory)}.txt'
     data = convert_txt_to_json(base_directory)
     save_to_json(data, output_json_file)
+    merge_txt_files(base_directory,output_txt_file)
