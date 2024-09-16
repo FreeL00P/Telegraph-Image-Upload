@@ -26,12 +26,12 @@ logger.setLevel(logging.INFO)
 # 用于保存链接时的锁
 save_file_lock = threading.Lock()
 
-def compress_image(image_path, temp_dir='temp', max_size=5 * 1024 * 1024, quality=85):
+
+def compress_image(image_path, max_size=5 * 1024 * 1024, quality=85):
     """
        压缩图像，确保其大小不超过指定的最大字节数，并返回一个 Image 对象。
 
        :param image_path: str - 图像文件的路径
-       :param temp_dir: str - 临时文件夹的路径，默认为 'temp'
        :param max_size: int - 图像的最大字节数，默认为 5MB
        :param quality: int - 图像初始质量，默认为 85
        :return: Image - 压缩后的 Image 对象
@@ -55,6 +55,7 @@ def compress_image(image_path, temp_dir='temp', max_size=5 * 1024 * 1024, qualit
 
     return Image.open(img_bytes)
 
+
 def resize_image(img, scale_percentage):
     """
     按照给定的百分比缩放图片，同时确保缩放后的图片尺寸小于4000x6000像素。
@@ -73,14 +74,16 @@ def resize_image(img, scale_percentage):
         scale_percentage = max_width / original_width * 100
         new_width = max_width
         new_height = int(original_height * scale_percentage / 100)
-        logging.info(f"尺寸过大！缩小至{round(scale_percentage,0)}%")
+        logging.info(f"尺寸过大！缩小至{round(scale_percentage, 0)}%")
     if new_height > max_height:
         scale_percentage = max_height / original_height * 100
         new_height = max_height
         new_width = int(original_width * scale_percentage / 100)
-        logging.info(f"尺寸过大！缩小至{round(scale_percentage,0)}%")
+        logging.info(f"尺寸过大！缩小至{round(scale_percentage, 0)}%")
     img = img.resize((new_width, new_height), Image.LANCZOS)
     return img
+
+
 def upload_file(file_path, session, url_base):
     """
     上传单个文件并返回文件的URL
@@ -92,7 +95,7 @@ def upload_file(file_path, session, url_base):
     """
     try:
         file_name = os.path.basename(file_path)
-        final_img=Image.open(file_path)
+        final_img = Image.open(file_path)
         # 检查文件大小并在必要时进行压缩
         if os.path.getsize(file_path) > 5 * 1024 * 1024:  # 大于5MB
             logging.info(f"{file_name} 大于5MB，正在压缩...")
@@ -100,17 +103,15 @@ def upload_file(file_path, session, url_base):
         img_byte_arr = io.BytesIO()
         img_byte_arr.seek(0)
         # 检查图片尺寸
-        resize_img=resize_image(final_img,100)
+        resize_img = resize_image(final_img, 100)
         # 将 Image 对象转换为字节流
         resize_img.save(img_byte_arr, format='JPEG')  # 使用合适的格式保存图像到字节流
         img_byte_arr.seek(0)  # 重置字节流的指针位置
         # 将图像作为文件上传
-        files = {'file': ('output_image.jpg', img_byte_arr, 'image/image/jpeg')}
-        response = session.post(url_base + '/upload', files=files)
+        files = {'file': ('output_image.jpg', img_byte_arr, 'image/jpeg')}
+        response = session.post(url_base, files=files)
         if response.status_code == 200:
-            data = response.json()
-            src = data[0]['src']
-            final_url = url_base + src
+            final_url = response_get_url(response)
             logging.info(f"{file_name} 上传成功！URL: {final_url}")
             return final_url
         else:
@@ -120,25 +121,23 @@ def upload_file(file_path, session, url_base):
         logging.error(f"{file_name} 上传过程中发生错误: {e}")
         return None
 
-def retry_failed_files(failed_files, src_values, url_base):
+
+def retry_failed_files(failed_files, src_values, url_base, folder_name):
     """
    重新尝试上传失败的文件
 
+    :param folder_name:  上传文件夹路径名称
    :param failed_files: list - 需要重试的文件路径列表
    :param src_values: list - 已成功上传的文件URL列表
    :param url_base: str - 基础URL，用于构造上传请求
    """
-    max_workers = 2  # 减少并发数量
+    retry_max_workers = 2  # 减少并发数量
     logging.info("开始重试上传失败的文件...")
 
     # 重新打开会话
-    session = requests.Session()
-    retries = Retry(total=3, backoff_factor=0.5)  # 增加退避时间
-    adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=retries)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
+    session = create_session()
 
-    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+    with ThreadPoolExecutor(max_workers=retry_max_workers) as executor:
         futures = {
             executor.submit(upload_file, filepath, session, url_base): filepath
             for filepath in failed_files  # 修改这里，直接传递完整的文件路径
@@ -164,18 +163,14 @@ def retry_failed_files(failed_files, src_values, url_base):
     session.close()
     logging.info("重试上传任务已完成。")
 
+
 def upload_files_in_directory_with_subfolders(directory):
     """
     上传目录中的所有文件，包括子文件夹，并且采用分组多线程上传
 
     :param directory: str - 要上传的根目录路径
     """
-    session = requests.Session()
-    retries = Retry(total=3, backoff_factor=0.5)
-    adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=retries)
-    session.mount('http://', adapter)
-    session.mount('https://', adapter)
-    # session.proxies.update(proxies)
+    session = create_session()
 
     for root, dirs, files in os.walk(directory):
         if not files:
@@ -198,7 +193,7 @@ def upload_files_in_directory_with_subfolders(directory):
 
                 for future in as_completed(futures):
                     file_name = futures[future]
-                    filepath=os.path.join(root, file_name)
+                    filepath = os.path.join(root, file_name)
                     try:
                         src = future.result(timeout=60)
                         if src:
@@ -229,13 +224,14 @@ def upload_files_in_directory_with_subfolders(directory):
         # 检查是否有失败的文件需要重试
         if failed_files:
             logging.info(f"正在重试文件夹 {folder_name} 中的失败文件...")
-            retry_failed_files(failed_files, url_base,src_values)
+            retry_failed_files(failed_files, url_base, src_values, folder_name)
         else:
             logging.info(f"文件夹 {folder_name} 中没有失败的文件。")
 
     session.close()
 
-def save_urls_to_file_by_folder(urls, folder_name):
+
+def save_urls_to_file_by_folder(src_values, folder_name):
     """
     将上传后的URL保存到一个以文件夹名命名的文件中
 
@@ -247,30 +243,41 @@ def save_urls_to_file_by_folder(urls, folder_name):
         os.makedirs(save_folder)
     with save_file_lock:  # 确保线程安全
         with open(file_path, 'a', encoding='utf-8') as f:
-            for url in urls:
+            for url in src_values:
                 f.write(url + '\n')
     logging.info(f"URL保存到 {file_path} 完成。")
+
+
+def response_get_url(response):
+    """
+    根据实际情况修改
+    :param response: 请求返回内容
+    :return: 上传得到的链接
+    """
+    data = response.json()
+    return data['data']
+
+
+def signal_handler(signum, frame):
+    """处理退出信号"""
+    logger.warning(f"\n接收到信号 {signum}+{frame}，程序退出中...")
+    sys.exit(0)
+
+
+def create_session():
+    """创建带有连接池和重试机制的会话对象"""
+    session = requests.Session()
+    retries = Retry(total=3, backoff_factor=0.5)  # 增加退避时间
+    adapter = HTTPAdapter(pool_connections=100, pool_maxsize=100, max_retries=retries)  # 增加连接池
+    session.mount('http://', adapter)
+    session.mount('https://', adapter)
+    if proxies:
+        session.proxies.update(proxies)
+    return session
+
+
 def main():
-    """ 主函数 """
-    global upload_directory
-    upload_directory = r""
-    global save_folder
-    save_folder=os.path.basename(upload_directory)
-    global url_base
-    url_base = ''
-    # global proxies
-    # proxies = {
-    #     "http": "http://127.0.0.1:7890",
-    #     "https": "http://127.0.0.1:7890"
-    # }
-    global max_workers
-    max_workers= 4  # 并发数
-    global   batch_size
-    batch_size = 50  # 每次处理文件数
     # 捕获 SIGINT 信号 (Ctrl+C)
-    def signal_handler(sig, frame):
-        logging.info("程序终止，正在关闭...")
-        sys.exit(0)
     signal.signal(signal.SIGINT, signal_handler)
     signal.signal(signal.SIGTERM, signal_handler)
     # 启动上传任务
@@ -281,11 +288,17 @@ def main():
     # 所有任务完成后退出程序
     logging.info("程序执行完毕，正在退出...")
     sys.exit(0)
+
+
+upload_directory = r""
+url_base = ''
+proxies = {
+    "http": "http://127.0.0.1:7890",
+    "https": "http://127.0.0.1:7890"
+}
+max_workers = 4  # 并发数
+batch_size = 50  # 每次处理文件数
+""" 主函数 """
+save_folder = os.path.basename(upload_directory)
 if __name__ == "__main__":
     main()
-
-
-
-
-
-
